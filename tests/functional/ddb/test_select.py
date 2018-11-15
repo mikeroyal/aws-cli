@@ -57,7 +57,17 @@ class TestSelect(BaseSelectTest):
         command = [
             'ddb', 'select', 'mytable', '--key-condition', 'foo = 1'
         ]
-        stdout, _, _ = self.run_cmd(command, expected_rc=0)
+        expected_params = {
+            'TableName': 'mytable',
+            'ReturnConsumedCapacity': 'NONE',
+            'ConsistentRead': True,
+            'KeyConditionExpression': '#n0 = :n1',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
+            'ExpressionAttributeValues': {':n1': {'N': '1'}}
+        }
+        stdout, _, _ = self.assert_params_for_cmd(
+            command, expected_params, expected_rc=0
+        )
         self.assert_yaml_response_equal(stdout, self.parsed_response)
         operations_called = [o[0].name for o in self.operations_called]
         self.assertEqual(operations_called, ['Query'])
@@ -83,7 +93,8 @@ class TestSelect(BaseSelectTest):
             'TableName': 'mytable',
             'ReturnConsumedCapacity': 'NONE',
             'ConsistentRead': True,
-            'ProjectionExpression': 'foo',
+            'ProjectionExpression': '#n0',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
         }
         stdout, _, _ = self.assert_params_for_cmd(
             command, expected_params, expected_rc=0
@@ -99,12 +110,17 @@ class TestSelect(BaseSelectTest):
         command = [
             'ddb', 'select', 'mytable', '--filter', 'foo BETWEEN 1 AND 3'
         ]
-        # TODO: update when simple expressions are added
+
         expected_params = {
             'TableName': 'mytable',
             'ReturnConsumedCapacity': 'NONE',
             'ConsistentRead': True,
-            'FilterExpression': 'foo BETWEEN 1 AND 3',
+            'FilterExpression': '#n0 BETWEEN :n1 AND :n2',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
+            'ExpressionAttributeValues': {
+                ':n1': {'N': '1'},
+                ':n2': {'N': '3'},
+            }
         }
         stdout, _, _ = self.assert_params_for_cmd(
             command, expected_params, expected_rc=0
@@ -278,6 +294,41 @@ class TestSelect(BaseSelectTest):
             "ScannedCount": 1,
         }
         self.assert_yaml_response_equal(stdout, expected)
+
+    def test_select_with_multiple_expressions(self):
+        self.parsed_response = {
+            'Count': 1,
+            'Items': [{'name': {'S': 'macbook'}, 'price': {'N': '2000'}}],
+            'ScannedCount': 1,
+        }
+        command = [
+            'ddb', 'select', 'laptops',
+            '--projection', 'name, price',
+            '--filter', 'price < 3000',
+            '--key-condition', 'name = "macbook"',
+        ]
+        expected = {
+            'TableName': 'laptops',
+            'ReturnConsumedCapacity': 'NONE',
+            'ConsistentRead': True,
+            'ProjectionExpression': '#n0, #n1',
+            'FilterExpression': '#n2 < :n3',
+            'KeyConditionExpression': '#n4 = :n5',
+            'ExpressionAttributeNames': {
+                '#n0': 'name',
+                '#n1': 'price',
+                '#n2': 'price',
+                '#n4': 'name',
+            },
+            'ExpressionAttributeValues': {
+                ':n3': {'N': '3000'},
+                ':n5': {'S': 'macbook'},
+            }
+
+        }
+        stdout, _, _ = self.assert_params_for_cmd(
+            command, expected, expected_rc=0
+        )
 
 
 class TestSelectPagination(BaseSelectTest):
