@@ -155,7 +155,7 @@ class Parser(object):
         return ast.sequence(elements)
 
     def _parse_operand(self):
-        if self._match(['literal', 'lbracket']):
+        if self._match(['literal', 'lbracket', 'lbrace']):
             return self._parse_literal()
         elif self._match(['identifier', 'unquoted_identifier']):
             value = self._current['value']
@@ -169,20 +169,40 @@ class Parser(object):
             value = self._current['value']
             self._advance()
         elif self._match('lbracket'):
-            value = self._parse_list()
+            self._advance()
+            value = self._parse_literal_sequence()
+            self._advance_if_match('rbracket')
+        elif self._match('lbrace'):
+            self._advance()
+            if self._match_next('colon'):
+                value = self._parse_literal_map()
+            else:
+                value = set(self._parse_literal_sequence())
+            self._advance_if_match('rbrace')
         else:
             raise ParserError('literal')
         return ast.literal(value)
 
-    def _parse_list(self):
-        self._advance_if_match('lbracket')
+    def _parse_literal_map(self):
+        elements = {}
+        while True:
+            key = self._current['value']
+            self._advance_if_match('literal')
+            self._advance_if_match('colon')
+            value = self._parse_literal()['value']
+            elements[key] = value
+            if not self._match('comma'):
+                break
+            self._advance()
+        return elements
+
+    def _parse_literal_sequence(self):
         elements = []
         while True:
             elements.append(self._parse_literal()['value'])
             if not self._match('comma'):
                 break
             self._advance()
-        self._advance_if_match('rbracket')
         return elements
 
     def _advance(self):
