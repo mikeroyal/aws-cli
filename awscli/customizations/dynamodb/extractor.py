@@ -41,6 +41,7 @@ class AttributeExtractor(object):
             'expression': expression,
             'identifiers': self._identifiers,
             'values': self._literals,
+            'substitution_count': len(self._identifiers) + len(self._literals)
         }
 
     def _substitution_index(self):
@@ -50,9 +51,6 @@ class AttributeExtractor(object):
     def _visit(self, node):
         method = getattr(self, '_visit_%s' % node['type'])
         return method(node)
-
-    def _default_visit(self, node):
-        raise NotImplementedError('_default_visit')
 
     def _visit_comparator(self, node):
         left = self._visit(node['children'][0])
@@ -73,11 +71,10 @@ class AttributeExtractor(object):
         return '%s ' % literal_replacement
 
     def _visit_sequence(self, node):
-        expression = '('
+        visited_children = []
         for child in node['children']:
-            expression += self._visit(child)
-        expression += ') '
-        return expression
+            visited_children.append(self._visit(child).strip())
+        return '%s' % ', '.join(visited_children)
 
     def _visit_or_expression(self, node):
         left = self._visit(node['children'][0])
@@ -96,12 +93,12 @@ class AttributeExtractor(object):
         return '( %s) ' % self._visit(node['children'][0])
 
     def _visit_function(self, node):
-        return '%s%s' % (node['value'], self._visit_sequence(node))
+        return '%s(%s) ' % (node['value'], self._visit_sequence(node).strip())
 
     def _visit_in_expression(self, node):
-        return '%sIN %s' % (
+        return '%sIN (%s) ' % (
             self._visit(node['children'][0]),
-            self._visit(node['children'][1]),
+            self._visit(node['children'][1]).strip(),
         )
 
     def _visit_between_expression(self, node):

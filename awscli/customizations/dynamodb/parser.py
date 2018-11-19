@@ -64,7 +64,7 @@ class Parser(object):
         return parsed
 
     def _parse_expression(self):
-        if self._match_next('comma'):
+        if self._match_next(['comma', 'eof']):
             return self._parse_sequence()
         return self._parse_and_or()
 

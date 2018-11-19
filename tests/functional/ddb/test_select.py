@@ -127,6 +127,109 @@ class TestSelect(BaseSelectTest):
         )
         self.assert_yaml_response_equal(stdout, self.parsed_response)
 
+    def test_filter_with_function(self):
+        command = [
+            'ddb', 'select', 'mytable', '--filter', 'contains(foo, "bar")'
+        ]
+
+        expected_params = {
+            'TableName': 'mytable',
+            'ReturnConsumedCapacity': 'NONE',
+            'ConsistentRead': True,
+            'FilterExpression': 'contains(#n0, :n1)',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
+            'ExpressionAttributeValues': {
+                ':n1': {'S': 'bar'},
+            }
+        }
+        stdout, _, _ = self.assert_params_for_cmd(
+            command, expected_params, expected_rc=0
+        )
+        self.assert_yaml_response_equal(stdout, self.parsed_response)
+
+    def test_filter_with_set(self):
+        command = [
+            'ddb', 'select', 'mytable', '--filter', 'foo = {1, 2, 3}'
+        ]
+
+        expected_params = {
+            'TableName': 'mytable',
+            'ReturnConsumedCapacity': 'NONE',
+            'ConsistentRead': True,
+            'FilterExpression': '#n0 = :n1',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
+            'ExpressionAttributeValues': {
+                ':n1': {'NS': ['1', '2', '3']},
+            }
+        }
+        stdout, _, _ = self.assert_params_for_cmd(
+            command, expected_params, expected_rc=0
+        )
+        self.assert_yaml_response_equal(stdout, self.parsed_response)
+
+    def test_filter_with_bytes(self):
+        command = [
+            'ddb', 'select', 'mytable', '--filter', 'foo <> b"4pyT"'
+        ]
+
+        expected_params = {
+            'TableName': 'mytable',
+            'ReturnConsumedCapacity': 'NONE',
+            'ConsistentRead': True,
+            'FilterExpression': '#n0 <> :n1',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
+            'ExpressionAttributeValues': {
+                # This will be base64 encoded during serialization
+                ':n1': {'B': b'\xe2\x9c\x93'},
+            }
+        }
+        stdout, _, _ = self.assert_params_for_cmd(
+            command, expected_params, expected_rc=0
+        )
+        self.assert_yaml_response_equal(stdout, self.parsed_response)
+
+    def test_filter_with_list(self):
+        command = [
+            'ddb', 'select', 'mytable', '--filter', 'foo <> [-1, 2, "3"]'
+        ]
+
+        expected_params = {
+            'TableName': 'mytable',
+            'ReturnConsumedCapacity': 'NONE',
+            'ConsistentRead': True,
+            'FilterExpression': '#n0 <> :n1',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
+            'ExpressionAttributeValues': {
+                ':n1': {'L': [
+                    {'N': '-1'}, {'N': '2'}, {'S': '3'},
+                ]},
+            }
+        }
+        stdout, _, _ = self.assert_params_for_cmd(
+            command, expected_params, expected_rc=0
+        )
+        self.assert_yaml_response_equal(stdout, self.parsed_response)
+
+    def test_filter_with_map(self):
+        command = [
+            'ddb', 'select', 'mytable', '--filter', 'foo <> {"bar": 4}'
+        ]
+
+        expected_params = {
+            'TableName': 'mytable',
+            'ReturnConsumedCapacity': 'NONE',
+            'ConsistentRead': True,
+            'FilterExpression': '#n0 <> :n1',
+            'ExpressionAttributeNames': {'#n0': 'foo'},
+            'ExpressionAttributeValues': {
+                ':n1': {'M': {"bar": {"N": "4"}}},
+            }
+        }
+        stdout, _, _ = self.assert_params_for_cmd(
+            command, expected_params, expected_rc=0
+        )
+        self.assert_yaml_response_equal(stdout, self.parsed_response)
+
     def test_select_with_attributes_all(self):
         command = [
             'ddb', 'select', 'mytable', '--attributes', 'ALL'
@@ -264,7 +367,7 @@ class TestSelect(BaseSelectTest):
         )
         self.assert_yaml_response_equal(stdout, self.parsed_response['Items'])
 
-    def test_select_bytes(self):
+    def test_select_returns_bytes(self):
         self.parsed_response = {
             "Count": 1,
             "Items": [{"foo": {"B": b"\xe2\x9c\x93"}}],
