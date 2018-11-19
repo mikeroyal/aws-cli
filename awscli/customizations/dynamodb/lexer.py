@@ -17,6 +17,9 @@ import re
 import string
 
 
+from .types import Binary
+
+
 VALID_BASE64 = re.compile(r'[A-Za-z0-9+/=]+')
 
 
@@ -176,7 +179,7 @@ class Lexer(object):
                 'Invalid base64 string: b"%s"' % raw_string['value']
             )
 
-        raw_string['value'] = decoded
+        raw_string['value'] = Binary(decoded)
         raw_string['start'] -= 1
         return raw_string
 
