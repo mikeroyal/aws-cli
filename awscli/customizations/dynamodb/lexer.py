@@ -67,7 +67,7 @@ class Lexer(object):
             elif self._current == '"':
                 yield self._consume_string_literal()
             elif self._current in self.WHITESPACE:
-                yield self._consume_whitespace()
+                self._next()
             elif self._current in self.INT_CHARS:
                 yield self._consume_number()
             elif self._current == '<':
@@ -108,16 +108,6 @@ class Lexer(object):
         yield {
             'type': 'eof', 'value': '',
             'start': self._length, 'end': self._length
-        }
-
-    def _consume_whitespace(self):
-        start = self._position
-        buff = self._current
-        while self._next() in self.WHITESPACE:
-            buff += self._current
-        return {
-            'type': 'whitespace', 'value': buff,
-            'start': start, 'end': start + len(buff)
         }
 
     def _consume_unquoted_identifier(self):
